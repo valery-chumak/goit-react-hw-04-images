@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal/Modal';
 import Loader from './Loader/Loader';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -7,94 +7,68 @@ import css from '../styles/styles.module.css';
 import { searchPhotos } from './api/Api';
 import Searchbar from './Searchbar/Searchbar';
 
-export default class App extends Component {
-  state = {
-    items: [],
-    loading: false,
-    error: null,
-    search: '',
-    page: 1,
-    showModal: false,
-    modalContent: '',
-  };
+export default function App() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const [modalContent, setModalContent] = useState('');
 
-  componentDidUpdate(prevProps, prevState) {
-    const { page } = this.state;
-    const prevSearch = prevState.search;
-    const curSearch = this.state.search;
-    if (prevProps.search !== this.props.search) {
-      this.handleChangeState();
-    }
-    if (prevSearch !== curSearch) {
-      this.fetchPhotosSearch().then(response => {
-        this.setState({
-          items: response,
-          page: page + 1,
-        });
+  useEffect(() => {
+    if (search) {
+      fetchPhotosSearch(search, page).then(response => {
+        setItems(prev => [...prev, ...response]);
       });
     }
-  }
+  }, [search, page]);
 
-  handleChangeState = ({ search }) => {
-    this.setState({
-      search: search,
-      page: 1,
-      loading: true,
-    });
+  const handleChangeState = search => {
+    setItems([]);
+    setSearch(search);
+    setPage(1);
+    setLoading(false);
   };
-  async fetchPhotosSearch() {
-    const { search, page } = this.state;
-    this.setState({ loading: true });
-
+  const fetchPhotosSearch = async (search, page) => {
+    setLoading(true);
     try {
       const data = await searchPhotos(search, page);
       return data.hits;
     } catch (error) {
-      this.setState({ error });
+      setError(true);
     } finally {
-      this.setState({ loading: false });
+      setLoading(false);
     }
-  }
-  loadMore = () => {
-    const { search, page } = this.state;
-    this.setState({ loading: true });
-    this.fetchPhotosSearch(search, page).then(response => {
-      this.setState(prevState => ({
-        items: [...prevState.items, ...response],
-        page: prevState.page + 1,
-        loading: false,
-      }));
-    });
   };
-  openModal = ({ largeImg }) => {
-    this.setState({
-      showModal: true,
-      modalContent: largeImg,
+  const loadMore = () => {
+    setPage(prev => {
+      return prev + 1;
     });
+    setLoading(false);
   };
-  closeModal = () => {
-    this.setState({
-      showModal: false,
-      modalContent: '',
-    });
+  const openModal = ({ largeImg }) => {
+    setShowModal(true);
+    setModalContent(largeImg);
   };
-  render() {
-    const { items, loading, error, showModal, modalContent } = this.state;
-    const { loadMore, handleChangeState, closeModal, openModal } = this;
-    const isImages = Boolean(items.length);
-    return (
-      <div className={css.App}>
-        <Searchbar onSubmit={handleChangeState} />
-        {isImages && <ImageGallery items={items} onClick={openModal} />}
-        {showModal && (
-          <Modal onClose={closeModal}>
-            <img src={modalContent} alt="" />
-          </Modal>
-        )}
-        {loading && <Loader />}
-        {error && <h2>Sorry. Something get wrong. Try later.</h2>}
-        {isImages && <Button onClick={loadMore} />}
-      </div>
-    );
-  }
+  const closeModal = () => {
+    setShowModal(false);
+    setModalContent('');
+  };
+
+  const isImages = Boolean(items.length);
+  return (
+    <div className={css.App}>
+      <Searchbar onSubmit={handleChangeState} />
+      {isImages && <ImageGallery items={items} onClick={openModal} />}
+      {showModal && (
+        <Modal onClose={closeModal}>
+          <img src={modalContent} alt="" />
+        </Modal>
+      )}
+      {loading && <Loader />}
+      {error && <h2>Sorry. Something get wrong. Try later.</h2>}
+      {isImages && <Button onClick={loadMore} />}
+    </div>
+  );
 }
